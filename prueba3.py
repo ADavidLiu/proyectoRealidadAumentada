@@ -14,16 +14,21 @@ import winsound as ws
     # Manejar el error que se obtiene al intentar mover el elemento multimedia (imagen o video) mas allá de los límites del frame
     # Implementar controles para la reproducción del video
     # Implementar la opción de guardar o no el nuevo video (por ahora siempre lo graba)
-    # Tal vez implementar una GUI
+    # Implementar una GUI
+
+opcionMultimedia = 1  # 0 - Imagen, 1 - Video, 2 - Audio
 
 multimedia = cv2.imread("oni.png")  # El usuario debería poder seleccionar el archivo (y no ser sólo una imagen)
+
+if opcionMultimedia == 0:
+    fourcc = cv2.VideoWriter_fourcc(*'XVID')  # Requiere instalar el códec adecuado/escogido
+    # Sólo 4 FPS porque está capturando sólo a ese rate supongo que debido a la capacidad de mi PC
+    videoAumentado = cv2.VideoWriter('aumentado.avi', fourcc, 4, (640, 480))
 
 multimediaAudio = "handel.wav"
 estaReproduciendo = False
 
 umbral = 0.8 # Entre 0 y 1 por haber usado "TM_CCOEFF_NORMED". Un porcentaje alto es mejor para ROIs pequeñas y viceversa
-
-opcionMultimedia = 1 # 0 - Imagen, 1 - Video, 2 - Audio
 
 # Para usar con un video (no sé por qué no me funciona dando una ruta al archivo. Por ahora uso la webcam/cualquier camara)
 cap = cv2.VideoCapture(0)
@@ -66,16 +71,12 @@ while (cap.isOpened()):
         cv2.rectangle(img, top_left, bottom_right, (255, 255, 255), 2)
 
         if opcionMultimedia == 0:
-            fourcc = cv2.VideoWriter_fourcc(*'XVID')  # Requiere instalar el códec adecuado/escogido
-            videoAumentado = cv2.VideoWriter('aumentado.avi',fourcc, 4, (640,480)) # Sólo 4 FPS porque está capturando sólo a ese rate
-                                                                                   # supongo que debido a la capacidad de mi PC
-
             # Para hallar el centro del rectángulo del ROI
             centroROI = (bottom_right[0] - (bottom_right[0] / 4), bottom_right[1] - (bottom_right[1] / 4))
             # Para la máscara (Es del tamaño del elemento multimedia, e inicialmente color negra)
             mascara = np.zeros(multimedia.shape, multimedia.dtype)
             # Arreglo de puntos que determina un polígono (cuadrado) del tamaño del frame. Usado para determinar la zona visible (blanca) la máscara
-            poly = np.array([[0, 0], [0, frame.shape[0]], [frame.shape[0], frame.shape[1]], [frame.shape[1], 0]], np.int32)
+            poly = np.array([[0, 0], [0, 400], [frame.shape[0], frame.shape[1]], [frame.shape[1], 0]], np.int32)
             # Pinta la máscara visible (blanco) a partir del contorno generado por los polígonos anteriormente definidos
             cv2.fillPoly(mascara, [poly], (255, 255, 255))
             #multimedia = cv2.resize(multimedia, (w*2, h*2))
@@ -112,26 +113,26 @@ while (cap.isOpened()):
 
         elif opcionMultimedia == 1:
             retVideo, multimediaVideoFrame = multimediaVideo.read()
+
+            # Stretch a la forma del ROI
+            multimediaVideoFrame = cv2.resize(multimediaVideoFrame, (bottom_right[0] - top_left[0], bottom_right[1] - top_left[1]))
             frameActual += 1
             # Para loop el video
             if frameActual == multimediaVideo.get(cv2.CAP_PROP_FRAME_COUNT):
                 frameActual = 0
                 multimediaVideo.set(cv2.CAP_PROP_POS_FRAMES, 0)
-            cv2.imshow('video', multimediaVideoFrame)
-            if cv2.waitKey(100) & 0xff == ord('w'):
-                break
+            cv2.waitKey(1)
             # Para hallar el centro del rectángulo del ROI
-            #centroROI = (bottom_right[0] - (bottom_right[0] / 4), bottom_right[1] - (bottom_right[1] / 4))
+            centroROI = (bottom_right[0] - (bottom_right[0] / 4), bottom_right[1] - (bottom_right[1] / 4))
             # Para la máscara (Es del tamaño del elemento multimedia, e inicialmente color negra)
-            #mascara = np.zeros(frame.shape, frame.dtype)
+            mascara = np.zeros(multimediaVideoFrame.shape, multimediaVideoFrame.dtype)
             # Arreglo de puntos que determina un polígono (cuadrado) del tamaño del frame. Usado para determinar la zona visible (blanca) la máscara
-            #poly = np.array([[0, 0], [0, frame.shape[0]], [frame.shape[0], frame.shape[1]], [frame.shape[1], 0]],
-                            #np.int32)
+            poly = np.array([[0, 0], [0, 400], [frame.shape[0], frame.shape[1]], [frame.shape[1], 0]], np.int32)
             # Pinta la máscara visible (blanco) a partir del contorno generado por los polígonos anteriormente definidos
-            #cv2.fillPoly(mascara, [poly], (255, 255, 255))
+            cv2.fillPoly(mascara, [poly], (255, 255, 255))
             # Genera la sobreposición de la multimedia y la muestra en el centro del ROI
-            #sobrepuesto = cv2.seamlessClone(multimediaVideoFrame, frame, mascara, centroROI, cv2.MIXED_CLONE)
-            #cv2.imshow("Sobrepuesto", sobrepuesto)  # Muestra la sobreposición de la multimedia en la webcam/video
+            sobrepuesto = cv2.seamlessClone(multimediaVideoFrame, frame, mascara, centroROI, cv2.MIXED_CLONE)
+            cv2.imshow("Sobrepuesto", sobrepuesto)  # Muestra la sobreposición de la multimedia en la webcam/video
             # Captura los frames del video aumentado si presiona la tecla 'r'
             #videoAumentado.write(sobrepuesto)
         elif opcionMultimedia == 2:
