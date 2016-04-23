@@ -16,7 +16,7 @@ import winsound as ws
     # Implementar la opción de guardar o no el nuevo video (por ahora siempre lo graba)
     # Implementar una GUI
 
-opcionMultimedia = 1  # 0 - Imagen, 1 - Video, 2 - Audio
+opcionMultimedia = 2  # 0 - Imagen, 1 - Video, 2 - Audio
 
 multimedia = cv2.imread("oni.png")  # El usuario debería poder seleccionar el archivo (y no ser sólo una imagen)
 
