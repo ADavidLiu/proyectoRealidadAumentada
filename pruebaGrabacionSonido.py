@@ -8,7 +8,7 @@ def grabarSonido():
     FORMAT = pyaudio.paInt16
     CHANNELS = 2
     RATE = 44100
-    RECORD_SECONDS = 60 # 60 segundos (idealmente debería ser la duración del video, pero como es un livestream no hay tiempo definido)
+    RECORD_SECONDS = 5 # 5 segundos (idealmente debería ser la duración del video, pero como es un livestream no hay tiempo definido)
     WAVE_OUTPUT_FILENAME = "grabacion.wav"
 
     p = pyaudio.PyAudio()
