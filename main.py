@@ -7,7 +7,7 @@ import subprocess as sp
 import winsound as ws
 from Tkinter import Tk # Python 2.7
 from tkFileDialog import askopenfilename
-from pruebaGrabacionSonido import grabarSonido
+#from pruebaGrabacionSonido import grabarSonido
 
 # Faltan por hacer (que recuerdo en este momento: 26/03/2016):
     # Implementar la opción de que el usuario pueda escoger el archivo multimedia (imagen, audio o video)        (✓)
@@ -20,37 +20,56 @@ from pruebaGrabacionSonido import grabarSonido
     # Grabar el nuevo video con audio si se escoje esta opción
     # Implementar una GUI
 
-# Opciones iniciales (Deberían poder escogerse desde la GUI)
-opcionMultimedia = 1  # 0 - Imagen, 1 - Video, 2 - Audio
-umbral = 0.5 # Entre 0 y 1 por haber usado "TM_CCOEFF_NORMED". Un porcentaje alto es mejor para ROIs pequeñas y viceversa
+# Opciones iniciales
+opcionMultimedia = 2  # 0 - Imagen, 1 - Video, 2 - Audio
+umbral = 0.6 # Entre 0 y 1 por haber usado "TM_CCOEFF_NORMED". Un porcentaje alto es mejor para ROIs pequeñas y viceversa
 guardarVideoAumentado = True # Si se guarda el video al final o no
+usarCamara = False # Si usar un livestream o no
 
-# Para abrir una ventana de diálogo y escojer el archivo deseado
+# Para abrir una ventana de diálogo y escojer los archivos deseados
 root = Tk()
 root.withdraw()
-archivo = askopenfilename()
 
+# Para el título del cuadro de diálogo al escoger el archivo Multimedia
+if opcionMultimedia == 0:
+    opcion = 'Imagen'
+elif opcionMultimedia == 1:
+    opcion = 'Video'
+else:
+    opcion = 'Audio'
+
+archivo = askopenfilename(title='Escoja el archivo multimedia a sobreponer. DEBE SER UN ARCHIVO DE: ' + opcion)
+
+if usarCamara == False:
+    # DEBE ser un .avi por tener instalado el códec XVID. O cualquier otro formato si se tiene el códec adecuado
+    videoPrecargado = askopenfilename(title='Escoja el video que se va a aumentar')
+
+# Determina cada archivo multimedia
 if opcionMultimedia == 0:
     multimedia = cv2.imread(archivo)
 elif opcionMultimedia == 2:
     multimediaAudio = archivo
 else:
     # El archivo seleccionado DEBE ser .avi (para mi PC en particular, a menos que se tengan instalados los códecs para otro formato)
-    # Además, NO se puede escoger el mismo archivo generado 'Aumentado.avi' si todavía está dentro de la carpeta con los archivos
-    # porque el nuevo video que se va a crear y que haría uso del anterior ya creado, se llaman igual!
+    # Además, NO se puede escoger el mismo archivo generado 'aumentado.avi' si todavía está dentro de la carpeta con los archivos
+    # porque el nuevo video que se va a crear y que haría uso del anterior ya creado, son el mismo!
     multimediaVideo = cv2.VideoCapture(archivo)
 
-# Variables 'globales'
-frameActual = 0 # Controla el loop del video sobrepuesto
+# Variables 'globales' de control
+frameActual = 0 # Controla el loop del video sobrepuesto y el video precargado
 estaReproduciendo = False # Controla la reproduccion del sonido
 
+# Si se escoge la opción de guardar el video aumentado final, se inicializan las variables necesarias para almacenarlo
 if guardarVideoAumentado == True:
-    fourcc = cv2.VideoWriter_fourcc(*'XVID')  # Requiere instalar el códec adecuado/escogido
+    fourcc = cv2.VideoWriter_fourcc(*'XVID')  # Requiere instalar el códec adecuado/escogido (en nuestro caso XVID o avi)
     # Sólo 4 FPS porque está capturando sólo a ese rate supongo que debido a la capacidad de mi PC
     videoAumentado = cv2.VideoWriter('aumentado.avi', fourcc, 4, (640, 480))
 
-# Para usar con un video (no sé por qué no me funciona dando una ruta al archivo. Por ahora uso la webcam/cualquier camara)
-cap = cv2.VideoCapture(0)
+# Para usar con un livestream o un video precargado
+if usarCamara == True:
+    cap = cv2.VideoCapture(0)
+else:
+    cap = cv2.VideoCapture(videoPrecargado)
 
 def obtenerROI(frame):
     cv2.imshow('Presione la tecla "i" para seleccionar una ROI', frame)
@@ -68,6 +87,7 @@ def finalizar():
     cap.release()  # Libera la webcam/video
     if guardarVideoAumentado == True:
         videoAumentado.release()  # Libera el nuevo video aumentado
+        # Para unir el video aumentado con el audio en caso de haber seleccionado esta opción
         # if opcionMultimedia == 2:
         # sp.call(["ffmpeg", "-i", "aumentado.avi", "-i", "grabacion.wav", "-vcodec", "copy", "-acodec", "copy",
         # "aumentadoAudio.avi"])  # Ejecuta ffmpeg para crear el nuevo video con audio
@@ -83,13 +103,13 @@ def posicionarMultimedia(frame, multimedia, esquinaCaja):
     # Pinta la máscara visible (blanco) a partir del contorno generado por los polígonos anteriormente definidos
     cv2.fillPoly(mascara, [poly], (255, 255, 255))
     # Genera la sobreposición de la multimedia y la muestra en el centro del ROI
-    sobrepuesto = cv2.seamlessClone(multimedia, frame, mascara, centroROI, cv2.MIXED_CLONE)
+    sobrepuesto = cv2.seamlessClone(multimedia, frame, mascara, centroROI, cv2.NORMAL_CLONE)
     cv2.imshow("Sobrepuesto", sobrepuesto)  # Muestra la sobreposición de la multimedia en la webcam/video
     # Captura los frames del video aumentado si la opción está habilitada
     if guardarVideoAumentado == True:
         videoAumentado.write(sobrepuesto)
 
-def realizarProcesamiento(estaReproduciendo, frameActual):
+def realizarProcesamiento(estaReproduciendo, frameActual, video):
     # Se ejecuta mientras el video/webcam se encuentre abierto
     while (cap.isOpened()):
 
@@ -97,8 +117,17 @@ def realizarProcesamiento(estaReproduciendo, frameActual):
         if archivo == '':
             break
 
-        # Lee el video de la webcam
+        # Lee el video del livestream o del video precargado
         ret, frame = cap.read()
+
+        # Si no está usando el livestream de una cámara, se debe loop el video precargado
+        if usarCamara == False:
+            frameActual += 1
+            # Para loop el video precargado
+            if frameActual == cap.get(cv2.CAP_PROP_FRAME_COUNT):
+                frameActual = 0
+                cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            cv2.waitKey(1)
 
         obtenerROI(frame)
 
@@ -127,10 +156,10 @@ def realizarProcesamiento(estaReproduciendo, frameActual):
             elif opcionMultimedia == 1:
                 retVideo, multimediaVideoFrame = multimediaVideo.read()
 
-                # Stretch a la forma del ROI
+                # Stretch el video a la forma del ROI
                 multimediaVideoFrame = cv2.resize(multimediaVideoFrame, (bottom_right[0] - top_left[0], bottom_right[1] - top_left[1]))
                 frameActual += 1
-                # Para loop el video
+                # Para loop el video sobrepuesto
                 if frameActual == multimediaVideo.get(cv2.CAP_PROP_FRAME_COUNT):
                     frameActual = 0
                     multimediaVideo.set(cv2.CAP_PROP_POS_FRAMES, 0)
@@ -158,5 +187,5 @@ def realizarProcesamiento(estaReproduciendo, frameActual):
             break
 
 # Ejecuta el código completo luego de definir las funciones
-realizarProcesamiento(estaReproduciendo, frameActual)
+realizarProcesamiento(estaReproduciendo, frameActual, cap)
 finalizar()
