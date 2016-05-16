@@ -16,12 +16,13 @@ import PyQt4.QtGui as qtgui # Para acceder a los métodos de los elementos de la
     # Implementar la sobreposición de videos         (✓)
     # Implementar la sobreposición de sonidos         (✓)
     # Escalar el elemento multimedia (imagen o video) al tamaño del ROI       (✓ - Sólo video)
-    # Implementar controles para la reproducción del video         (✓)
+    # Manejar el error que se obtiene al intentar mover el elemento multimedia (imagen o video) mas allá de los límites del frame
+    # Implementar controles para la reproducción del video
     # Implementar la opción de guardar o no el nuevo video (por ahora siempre lo graba)         (✓)
-    # Grabar el nuevo video con audio si se escoje esta opción         (✓ - Sólo lo sobrepone en loop sin importar en qué momento debería sonar)
+    # Grabar el nuevo video con audio si se escoje esta opción
     # Implementar una GUI         (✓)
 
-# Variables 'globales' de control inicial
+# Variables 'globales' de control
 frameActual = 0 # Controla el loop del video sobrepuesto y el video precargado
 estaReproduciendo = False # Controla la reproduccion del sonido durante la detección
 global umbral
@@ -30,9 +31,7 @@ global root
 root = Tk()
 root.withdraw() # Para evitar que se abra la root window
 global tipoSobreposicion
-tipoSobreposicion = cv2.NORMAL_CLONE # Método inicial
-global reproduciendoVideo # Para controlar la reproducción de un video precargado o del livestream
-reproduciendoVideo = True # Inicialmente se encuentra en reproducción
+tipoSobreposicion = cv2.NORMAL_CLONE # Valor inicial
 
 def definirUmbral(nivel):
     global umbral
@@ -124,16 +123,6 @@ def obtenerROI(frame):
         cv2.imwrite("frame.jpg", frame)
         sp.call(["python", "click_and_crop.py", "--image", "frame.jpg"])  # Ejecuta el otro script para obtener la ROI
 
-def reproducirVideo():
-    global reproduciendoVideo
-    reproduciendoVideo = True
-    return reproduciendoVideo
-
-def pausarVideo():
-    global reproduciendoVideo
-    reproduciendoVideo = False
-    return reproduciendoVideo
-
 def finalizar():
     cap.release()  # Libera la webcam/video
     if guardarVideoAumentado == True:
@@ -163,7 +152,6 @@ def posicionarMultimedia(frame, multimedia, esquinaCaja):
 def realizarProcesamiento():
     global frameActual
     global estaReproduciendo
-    global frame
     # Se ejecuta mientras el video/webcam se encuentre abierto
     while (cap.isOpened()):
 
@@ -183,11 +171,7 @@ def realizarProcesamiento():
                 cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
             cv2.waitKey(1)
 
-        if reproduciendoVideo == True:
-            obtenerROI(frame)
-        elif estaReproduciendo == True:
-            estaReproduciendo = False
-            ws.PlaySound(None, ws.SND_ASYNC | ws.SND_LOOP)  # Detiene la reproducción de audio
+        obtenerROI(frame)
 
         # Realiza el procesamiento de Template matching
         frameGrayscale = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) # Template matching sólo funciona con imágenes en escala de grises
@@ -205,6 +189,7 @@ def realizarProcesamiento():
         #if opcionMultimedia == 2:
             #grabarSonido()
 
+        print(umbral)
         # Compara el valor con mayor aproximación a la imagen usada como template, con el umbral, por cada frame
         if max_val >= umbral:
             cv2.rectangle(img, top_left, bottom_right, (255, 255, 255), 2) # Dibuja el rectángulo blanco
@@ -238,19 +223,16 @@ def realizarProcesamiento():
                 ws.PlaySound(None, ws.SND_ASYNC | ws.SND_LOOP)  # Detiene la reproducción de audio
 
         #cv2.imshow("res", res) # Muestra el mapa del "parecido" de cada píxel con el template (Operación de vecindad)
-        if reproduciendoVideo == True:
-            cv2.imshow("img", img) # Muestra la detección y seguimiento del template en la webcam/video
-        elif estaReproduciendo == True:
-            estaReproduciendo = False
-            ws.PlaySound(None, ws.SND_ASYNC | ws.SND_LOOP)  # Detiene la reproducción de audio
+        cv2.imshow("img", img) # Muestra la detección y seguimiento del template en la webcam/video
+
         # Termina el loop presionando 'q'
         if cv2.waitKey(1) & 0xFF == ord('q'):
             if opcionMultimedia == 2:
                 ws.PlaySound(None, ws.SND_ASYNC | ws.SND_LOOP)  # Detiene la reproducción de audio
             break
 
-# .connect() de QT sólo acepta una función sin parámetros como argumento. Por lo tanto, se crean funciones sólo para
-# llamar a las originales
+# .connect() sólo acepta una función sin parámetros como argumento. Por lo tanto, se crean funciones sólo para llamar
+# a las originales
 def btnSiCamara():
     global cap
     cap = definirFuente(True)
@@ -292,12 +274,6 @@ def btnNormalClone():
 def btnMixedClone():
     definirTipoSobreposicion(1)
 
-def btnPlay():
-    reproducirVideo()
-
-def btnPause():
-    pausarVideo()
-
 def cerrar():
     sys.exit(app.exec_())
 
@@ -327,8 +303,6 @@ if __name__ == "__main__":
     ui.btnAudio.toggled.connect(btnAudio)
     ui.btnNormalClone.toggled.connect(btnNormalClone)
     ui.btnMixedClone.toggled.connect(btnMixedClone)
-    ui.btnPlay.clicked.connect(btnPlay)
-    ui.btnPause.clicked.connect(btnPause)
     ui.btnSalir.clicked.connect(cerrar)
     ui.btnArchivo.clicked.connect(btnArchivo)
     ui.btnProcesar.clicked.connect(btnProcesar)
