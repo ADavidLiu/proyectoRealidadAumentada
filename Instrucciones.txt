@@ -1,0 +1,29 @@
+*** Antes de la ejecución: ***
+
+1) Ejecutar el archivo 'main.py'.
+
+*** Después de la ejecución y de que aparezca la GUI: ***
+
+1) Seleccione las opciones en el orden indicado.
+
+*** Después de haber presionado el botón de 'Procesar' y de que hayan aparecido las ventanas con el video o livestream: ***
+
+- Presione 'i' para tomar un frame:
+	- Dibuje un rectángulo alrededor del área que quiera tomar como ROI.
+	- Sólo debe hacer click una vez y arrastrar el cursor hasta el otro punto del rectángulo y soltarlo.
+- Se debió haber dibujado un rectángulo verde:
+	- Presione la tecla 'c' para recortar su selección.
+	- Preisone la tecla 'r' para reiniciar el área de selección.
+	- Presione la tecla 'q' para salir del área de selección de la ROI.
+- Los parámetros de ejecución como el umbral o el tipo de elemento a aumentar pueden ser configurados en tiempo real
+  a través de la GUI:
+	- Con las ventanas en foco, presione la tecla 'q' hasta que note que la reproducción se haya detenido.
+	- Cierre manualmente cada ventana abierta.
+	- Realice la nueva configuración.
+	- Presione nuevamente el botón 'Procesar'.
+- Los botones de 'Play' y 'Pausa' sólo tienen efecto cuando ya se haya presionado el botón 'Procesar'.
+
+Nota: Los comandos del teclado pueden no ser detectados inmediatamente, por favor inténtelo varias veces hasta
+      que la acción pertinente ocurra.
+
+      Adicionalmente, hay algunos comentarios importantes en el código en cuanto a los archivos requeridos y su manejo.
