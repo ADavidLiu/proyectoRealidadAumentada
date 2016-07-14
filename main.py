@@ -7,7 +7,6 @@ import subprocess as sp # Para ejecutar el otro script desde la línea de comand
 import winsound as ws # Para la reproducción de sonidos
 from Tkinter import Tk # Python 2.7
 from tkFileDialog import askopenfilename # Ventana de selección para el archivo multimedia
-#from pruebaGrabacionSonido import grabarSonido
 import interfaz as gui # Clase con la interfaz
 import PyQt4.QtGui as qtgui # Para acceder a los métodos de los elementos de la interfaz desde este archivo
 
@@ -15,10 +14,10 @@ import PyQt4.QtGui as qtgui # Para acceder a los métodos de los elementos de la
     # Implementar la opción de que el usuario pueda escoger el archivo multimedia (imagen, audio o video)        (✓)
     # Implementar la sobreposición de videos         (✓)
     # Implementar la sobreposición de sonidos         (✓)
-    # Escalar el elemento multimedia (imagen o video) al tamaño del ROI       (✓ - Sólo video)
+    # Escalar el elemento multimedia (imagen o video) al tamaño del ROI       (✓)
     # Implementar controles para la reproducción del video         (✓)
     # Implementar la opción de guardar o no el nuevo video (por ahora siempre lo graba)         (✓)
-    # Grabar el nuevo video con audio si se escoje esta opción         (✓ - Sólo lo sobrepone en loop sin importar en qué momento debería sonar)
+    # Grabar el nuevo video con audio si se escoje esta opción
     # Implementar una GUI         (✓)
 
 # Variables 'globales' de control inicial
@@ -36,8 +35,8 @@ reproduciendoVideo = True # Inicialmente se encuentra en reproducción
 
 def definirUmbral(nivel):
     global umbral
-    umbral = nivel/100  # Entre 0 y 1 por haber usado "TM_CCOEFF_NORMED". Un nivel alto es mejor para ROIs pequeñas y viceversa
-                        # Se divide entre 100 porque el slider sólo devuelve valores enteros
+    umbral = nivel/100.0  # Entre 0 y 1 por haber usado "TM_CCOEFF_NORMED". Un nivel alto es mejor para ROIs pequeñas y viceversa
+                          # Se divide entre 100 porque el slider sólo devuelve valores enteros
     return umbral
 
 def definirOpcionMultimedia(opcion):
@@ -123,6 +122,7 @@ def obtenerROI(frame):
         # Captura el frame actual para usarse como el template
         cv2.imwrite("frame.jpg", frame)
         sp.call(["python", "click_and_crop.py", "--image", "frame.jpg"])  # Ejecuta el otro script para obtener la ROI
+                                                                          # Autor del script: Adrian Rosebrock de PyImageSearch
 
 def reproducirVideo():
     global reproduciendoVideo
@@ -136,12 +136,13 @@ def pausarVideo():
 
 def finalizar():
     cap.release()  # Libera la webcam/video
+    global multimediaAudio
     if guardarVideoAumentado == True:
         videoAumentado.release()  # Libera el nuevo video aumentado
         # Para unir el video aumentado con el audio en caso de haber seleccionado esta opción
-        # if opcionMultimedia == 2:
-        # sp.call(["ffmpeg", "-i", "aumentado.avi", "-i", "grabacion.wav", "-vcodec", "copy", "-acodec", "copy",
-        # "aumentadoAudio.avi"])  # Ejecuta ffmpeg para crear el nuevo video con audio
+        #if opcionMultimedia == 2:
+            #sp.call(["ffmpeg", "-i", "aumentado.avi", "-i", multimediaAudio, "-vcodec", "copy", "-acodec", "copy",
+            #"aumentadoAudio.avi"])  # Ejecuta ffmpeg para crear el nuevo video con el audio seleccionado
     cv2.destroyAllWindows()  # Cierra todas las ventanas
 
 def posicionarMultimedia(frame, multimedia, esquinaCaja):
@@ -149,7 +150,7 @@ def posicionarMultimedia(frame, multimedia, esquinaCaja):
     centroROI = (esquinaCaja[0] - (esquinaCaja[0] / 4), esquinaCaja[1] - (esquinaCaja[1] / 4))
     # Para la máscara (Es del tamaño del elemento multimedia, e inicialmente color negra)
     mascara = np.zeros(multimedia.shape, multimedia.dtype)
-    # Arreglo de puntos que determina un polígono (cuadrado) del tamaño del frame. Usado para determinar la zona visible (blanca) la máscara
+    # Arreglo de puntos que determina un polígono (cuadrado) del tamaño del frame. Usado para determinar la zona visible (blanca) de la máscara
     poly = np.array([[0, 0], [0, 400], [frame.shape[0], frame.shape[1]], [frame.shape[1], 0]], np.int32)
     # Pinta la máscara visible (blanco) a partir del contorno generado por los polígonos anteriormente definidos
     cv2.fillPoly(mascara, [poly], (255, 255, 255))
@@ -164,6 +165,7 @@ def realizarProcesamiento():
     global frameActual
     global estaReproduciendo
     global frame
+    global multimedia
     # Se ejecuta mientras el video/webcam se encuentre abierto
     while (cap.isOpened()):
 
@@ -192,7 +194,7 @@ def realizarProcesamiento():
         # Realiza el procesamiento de Template matching
         frameGrayscale = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) # Template matching sólo funciona con imágenes en escala de grises
         img = frameGrayscale
-        template = cv2.imread('template.jpg', 0)
+        template = cv2.imread('template.jpg', 0) # Supone que ya existe una imagen previa inicial para usar como plantilla
         w, h = template.shape[::-1]
 
         # Aplica Template matching
@@ -210,6 +212,8 @@ def realizarProcesamiento():
             cv2.rectangle(img, top_left, bottom_right, (255, 255, 255), 2) # Dibuja el rectángulo blanco
 
             if opcionMultimedia == 0:
+                # Stretch la imagen a la forma del ROI
+                multimedia = cv2.resize(multimedia, (bottom_right[0] - top_left[0], bottom_right[1] - top_left[1]))
                 posicionarMultimedia(frame, multimedia, bottom_right)
             elif opcionMultimedia == 1:
                 retVideo, multimediaVideoFrame = multimediaVideo.read()
@@ -275,7 +279,7 @@ def btnArchivo():
 
 def sliderUmbral():
     global umbral
-    umbral = ui.sliderUmbral.value()/100.0
+    umbral = ui.sliderUmbral.value()/100.0 # Entre 0.0 y 1.0
 
 def btnImagen():
     definirOpcionMultimedia(0)
@@ -300,10 +304,6 @@ def btnPause():
 
 def cerrar():
     sys.exit(app.exec_())
-
-# Ejecuta el código completo luego de definir las funciones, de manera directa desde el código
-#realizarProcesamiento(estaReproduciendo, frameActual, cap)
-#finalizar()
 
 # Para crear la interfaz
 if __name__ == "__main__":
